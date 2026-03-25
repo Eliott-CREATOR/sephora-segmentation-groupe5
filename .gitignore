@@ -1,0 +1,49 @@
+# ── Dataset Sephora (données sensibles + taille 90 Mo) ──────────────────────
+data/*.csv
+data/*.xlsx
+data/*.xls
+
+# ── Modèles entraînés (régénérables via notebook 2) ─────────────────────────
+models/*.pkl
+models/*.joblib
+
+# ── Outputs (régénérables via les notebooks) ────────────────────────────────
+outputs/figures/*.png
+outputs/figures/*.jpg
+outputs/figures/*.svg
+outputs/data/*.csv
+
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# ── Environnements virtuels ──────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+
+# ── Variables d'environnement ────────────────────────────────────────────────
+.env
+.env.local
+
+# ── Jupyter ──────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
