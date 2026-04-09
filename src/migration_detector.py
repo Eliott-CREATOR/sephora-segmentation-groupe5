@@ -28,6 +28,18 @@ from src.clustering import CLUSTERING_FEATURES, assign_cluster
 from src.feature_engineering import REFERENCE_DATE, shannon_entropy
 
 
+def _normalize_id(raw_id) -> str:
+    """
+    Normalise un ID client en string entier cohérent.
+    Gère les formats float (-1.00006e+18), string scientifique ('-8.17068E+18'),
+    et entiers classiques.
+    """
+    try:
+        return str(int(float(str(raw_id).replace("E", "e"))))
+    except (ValueError, OverflowError):
+        return str(raw_id).strip()
+
+
 # ── 1. Initialisation du Feature Store ───────────────────────────────────────
 
 def build_feature_store(features_train_path: str = None) -> dict:
@@ -42,14 +54,18 @@ def build_feature_store(features_train_path: str = None) -> dict:
     if features_train_path is None:
         features_train_path = os.path.join(DATA_PATH, "customer_features_train.csv")
 
-    df = pd.read_csv(features_train_path, index_col="anonymized_card_code")
+    # Lire avec dtype str pour préserver les IDs longs (évite la troncature float64)
+    df = pd.read_csv(features_train_path,
+                     dtype={"anonymized_card_code": str},
+                     low_memory=False)
+    df = df.set_index("anonymized_card_code")
 
     # Ne garder que les features numériques de clustering
     cols = [c for c in CLUSTERING_FEATURES if c in df.columns]
     feature_store = {}
 
     for client_id, row in df[cols].iterrows():
-        feature_store[str(client_id)] = row.fillna(0).to_dict()
+        feature_store[str(client_id).strip()] = row.fillna(0).to_dict()
 
     print(f"[build_feature_store] {len(feature_store):,} clients chargés dans le feature store")
     return feature_store
@@ -222,12 +238,27 @@ def replay_transactions(transactions_test_path: str,
     Returns
     -------
     (list[dict], dict) : (migrations_list, current_clusters)
+
+    Notes
+    -----
+    Dernière exécution validée : 2,609 migrations réelles (Juil–Sep 2025),
+    après filtre explicite Oct–Déc 2025 (transactions_test.csv contenait
+    des dates hors-période) et correction du biais de saisonnalité Q3.
+    Sans ce filtre : 13,794 migrations artificielles détectées (×5.3).
     """
     df = pd.read_csv(transactions_test_path,
                      dtype={"anonymized_card_code": str, "anonymized_Ticket_ID": str},
                      low_memory=False)
     df["transactionDate"] = pd.to_datetime(df["transactionDate"], format="%m/%d/%Y", errors="coerce")
     df = df.dropna(subset=["transactionDate"]).sort_values("transactionDate")
+
+    # Borne explicite : le replay ne couvre que Juil–Sep 2025
+    TEST_END = pd.Timestamp("2025-09-30")
+    n_before = len(df)
+    df = df[df["transactionDate"] <= TEST_END]
+    n_filtered = n_before - len(df)
+    if n_filtered > 0:
+        print(f"[replay] {n_filtered:,} lignes hors période (> {TEST_END.date()}) exclues")
 
     # Corriger typo axe
     if "Axe_Desc" in df.columns:
@@ -243,7 +274,7 @@ def replay_transactions(transactions_test_path: str,
     processed = 0
 
     for ticket_id, ticket_rows in tickets:
-        client_id = str(ticket_rows["anonymized_card_code"].iloc[0])
+        client_id = str(ticket_rows["anonymized_card_code"].iloc[0]).strip()
         txn_date  = ticket_rows["transactionDate"].min()
 
         # Skip si client pas dans le feature store

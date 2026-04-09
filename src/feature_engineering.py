@@ -420,6 +420,356 @@ def save_features(features: pd.DataFrame,
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
+# ══════════════════════════════════════════════════════════════════════════════
+# CHANTIER 1 — CORRECTION DU BIAIS DE SAISONNALITÉ
+# Ajouté pour corriger l'inflation artificielle des migrations Q3 (Juil–Sep)
+# due au pic naturel d'achats rentrée + préparation fêtes.
+# ══════════════════════════════════════════════════════════════════════════════
+
+SI_CLIP_MIN = 0.30   # évite la division par un SI trop proche de 0
+SI_CLIP_MAX = 3.00   # évite une sur-correction sur des mois atypiques
+
+
+def compute_seasonality_index(df_transactions: pd.DataFrame) -> dict[int, float]:
+    """
+    Calcule l'indice de saisonnalité mensuel sur l'ensemble des transactions.
+
+    SI(m) = volume_CA_mensuel(m) / volume_CA_mensuel_moyen
+
+    SI > 1 → mois inflationnaire (Jul–Sep rentrée/fêtes)
+    SI < 1 → mois calme (Jan–Fév post-fêtes)
+    SI = 1 → mois "plat" (référence)
+
+    Parameters
+    ----------
+    df_transactions : DataFrame nettoyé contenant au minimum
+        transactionDate (datetime) et salesVatEUR (float).
+
+    Returns
+    -------
+    dict {mois_int (1-12): seasonality_index (float)}
+        Valeurs clippées dans [SI_CLIP_MIN, SI_CLIP_MAX].
+
+    Notes
+    -----
+    Calculer sur toutes les transactions disponibles (pas seulement train)
+    pour que l'indice reflète la réalité saisonnière globale du dataset.
+    """
+    df = df_transactions.copy()
+    df["_month"] = df["transactionDate"].dt.month
+
+    monthly_ca = (
+        df.groupby("_month")["salesVatEUR"]
+        .sum()
+        .rename("monthly_ca")
+    )
+
+    if len(monthly_ca) == 0:
+        print("  [compute_seasonality_index] ⚠️  Aucune transaction — SI = 1 pour tous les mois")
+        return {m: 1.0 for m in range(1, 13)}
+
+    mean_ca = monthly_ca.mean()
+    if mean_ca == 0:
+        return {m: 1.0 for m in range(1, 13)}
+
+    si_raw = (monthly_ca / mean_ca).to_dict()
+
+    # Clip + compléter les mois absents du dataset avec SI=1 (neutre)
+    si_index = {}
+    for m in range(1, 13):
+        raw = si_raw.get(m, 1.0)
+        si_index[m] = float(np.clip(raw, SI_CLIP_MIN, SI_CLIP_MAX))
+
+    print("  [compute_seasonality_index] Indices calculés :")
+    for m, si in si_index.items():
+        flag = "⚠️ " if si > 1.10 else ("📉" if si < 0.90 else "✓ ")
+        print(f"    Mois {m:2d} : SI = {si:.3f}  {flag}")
+
+    return si_index
+
+
+def apply_seasonality_correction(
+    df_transactions: pd.DataFrame,
+    seasonality_index: dict[int, float],
+) -> pd.DataFrame:
+    """
+    Corrige les montants monétaires par l'indice de saisonnalité du mois.
+
+    Pour chaque transaction :
+        salesVatEUR_adj  = salesVatEUR  / SI(mois)
+        discountEUR_adj  = discountEUR  / SI(mois)
+        net_spend_adj    = net_spend    / SI(mois)
+
+    Cela ramène tous les montants en "équivalent mois plat" :
+    une dépense de 200€ en septembre (SI=1.35) devient 148€ ajusté,
+    comparable à un mois de référence.
+
+    Ajoute aussi la colonne `seasonality_weight` par client :
+        seasonality_weight(client) = moyenne pondérée des SI sur ses transactions
+        → utilisé pour informer le dashboard (clients les plus affectés)
+
+    Parameters
+    ----------
+    df_transactions : DataFrame nettoyé (sortie de fix_data_quality).
+    seasonality_index : dict {mois_int: SI} (sortie de compute_seasonality_index).
+
+    Returns
+    -------
+    pd.DataFrame avec colonnes supplémentaires :
+        salesVatEUR_adj, discountEUR_adj, net_spend_adj, si_month, seasonality_weight
+
+    Notes
+    -----
+    NE MODIFIE PAS les colonnes originales salesVatEUR / discountEUR.
+    Les features corrigées sont buildées depuis les colonnes *_adj.
+    """
+    df = df_transactions.copy()
+
+    # Mapper SI sur chaque transaction
+    df["si_month"] = df["transactionDate"].dt.month.map(seasonality_index).fillna(1.0)
+
+    # Correction des montants
+    df["salesVatEUR_adj"] = df["salesVatEUR"] / df["si_month"]
+    df["discountEUR_adj"] = df["discountEUR"].fillna(0) / df["si_month"]
+    df["net_spend_adj"]   = df["net_spend"]   / df["si_month"]
+
+    # Seasonality weight par client (moyenne des SI de ses transactions)
+    sw = (
+        df.groupby("anonymized_card_code")["si_month"]
+        .mean()
+        .rename("seasonality_weight")
+    )
+    df = df.join(sw, on="anonymized_card_code")
+
+    # Diagnostique
+    n_tx        = len(df)
+    ca_before   = df["salesVatEUR"].sum()
+    ca_after    = df["salesVatEUR_adj"].sum()
+    pct_delta   = (ca_after - ca_before) / ca_before * 100 if ca_before > 0 else 0.0
+    print(f"  [apply_seasonality_correction] {n_tx:,} transactions corrigées")
+    print(f"    CA avant correction  : €{ca_before:,.0f}")
+    print(f"    CA après correction  : €{ca_after:,.0f}  ({pct_delta:+.1f}%)")
+    print("    → Les mois Q3 (Juil–Sep) sont déflatés, Q1 (Jan–Mar) sont gonflés")
+
+    return df
+
+
+def compute_rfm_corrected(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Variante de compute_rfm() utilisant les colonnes *_adj pour RFM.
+
+    Identique à compute_rfm() mais remplace salesVatEUR par salesVatEUR_adj
+    et discountEUR par discountEUR_adj.
+    Appeler uniquement sur un df ayant passé par apply_seasonality_correction().
+
+    Returns
+    -------
+    DataFrame indexé par anonymized_card_code — mêmes colonnes que compute_rfm().
+    """
+    if "salesVatEUR_adj" not in df.columns:
+        raise ValueError(
+            "Colonne 'salesVatEUR_adj' absente — "
+            "appeler apply_seasonality_correction() avant compute_rfm_corrected()."
+        )
+
+    ref_date = REFERENCE_DATE
+
+    last_txn  = df.groupby("anonymized_card_code")["transactionDate"].max()
+    recency   = (ref_date - last_txn).dt.days.rename("recency_days")
+
+    freq = (df.groupby("anonymized_card_code")["anonymized_Ticket_ID"]
+              .nunique().rename("frequency"))
+
+    # Monetary sur montants CORRIGÉS
+    monetary = (df.groupby("anonymized_card_code")["salesVatEUR_adj"]
+                  .sum().rename("monetary"))
+
+    basket_stats = (
+        df.groupby(["anonymized_card_code", "anonymized_Ticket_ID"])["salesVatEUR_adj"]
+        .sum().reset_index()
+    )
+    avg_basket = (basket_stats.groupby("anonymized_card_code")["salesVatEUR_adj"]
+                               .mean().rename("avg_basket"))
+    max_basket = (basket_stats.groupby("anonymized_card_code")["salesVatEUR_adj"]
+                               .max().rename("max_basket"))
+
+    qty_per_ticket = (
+        df.groupby(["anonymized_card_code", "anonymized_Ticket_ID"])["quantity"]
+        .sum().reset_index()
+    )
+    avg_items = (qty_per_ticket.groupby("anonymized_card_code")["quantity"]
+                                .mean().rename("avg_items_per_basket"))
+
+    disc_total  = df.groupby("anonymized_card_code")["discountEUR_adj"].sum()
+    spend_total = df.groupby("anonymized_card_code")["salesVatEUR_adj"].sum()
+    discount_ratio = (
+        (disc_total / spend_total.replace(0, np.nan))
+        .rename("discount_ratio")
+        .fillna(0)
+    )
+
+    rfm = pd.concat([recency, freq, monetary, avg_basket, max_basket,
+                     avg_items, discount_ratio], axis=1)
+    return rfm
+
+
+def build_corrected_feature_store(
+    df_clean: pd.DataFrame,
+    seasonality_index: dict[int, float] | None = None,
+    include_socio: bool = True,
+) -> pd.DataFrame:
+    """
+    Pipeline complet feature engineering avec correction saisonnalité.
+
+    Enchaîne :
+      apply_seasonality_correction → compute_rfm_corrected + features inchangées
+      → joint final + colonne seasonality_weight
+
+    Parameters
+    ----------
+    df_clean         : DataFrame nettoyé (sortie fix_data_quality).
+    seasonality_index: dict {mois: SI}. Si None, calculé automatiquement.
+    include_socio    : inclure les variables socio-démographiques.
+
+    Returns
+    -------
+    DataFrame (index = anonymized_card_code) avec 26 colonnes
+    (= 25 features originales + seasonality_weight).
+
+    Notes
+    -----
+    La colonne seasonality_weight NE doit PAS être ajoutée à CLUSTERING_FEATURES
+    dans clustering.py — elle sert uniquement à l'analyse et au dashboard.
+    """
+    print("[build_corrected_feature_store] Démarrage pipeline corrigé…")
+
+    # Calcul SI si non fourni
+    if seasonality_index is None:
+        print("[build_corrected_feature_store] Calcul du seasonality index…")
+        seasonality_index = compute_seasonality_index(df_clean)
+
+    # Correction saisonnalité
+    df_adj = apply_seasonality_correction(df_clean, seasonality_index)
+
+    # RFM corrigé
+    print("[build_corrected_feature_store] Calcul RFM corrigé…")
+    rfm = compute_rfm_corrected(df_adj)
+
+    # Features non-monétaires inchangées (calculées sur données originales)
+    print("[build_corrected_feature_store] Calcul features comportementales…")
+    beh  = compute_behavioral(df_clean)
+
+    print("[build_corrected_feature_store] Calcul canal…")
+    chan = compute_channel(df_clean)
+
+    print("[build_corrected_feature_store] Calcul marché…")
+    mkt  = compute_market(df_clean)
+
+    print("[build_corrected_feature_store] Calcul temporel…")
+    temp = compute_temporal(df_clean)
+
+    # Seasonality weight (1 valeur par client)
+    sw = (
+        df_adj.groupby("anonymized_card_code")["si_month"]
+        .mean()
+        .rename("seasonality_weight")
+    )
+
+    features = (
+        rfm.join(beh,  how="left")
+           .join(chan, how="left")
+           .join(mkt,  how="left")
+           .join(temp, how="left")
+           .join(sw,   how="left")
+    )
+
+    if include_socio:
+        socio_cols = [c for c in
+                      ["gender", "age_category", "age_generation", "status", "RFM_Segment_ID"]
+                      if c in df_clean.columns]
+        if socio_cols:
+            socio = (
+                df_clean[["anonymized_card_code"] + socio_cols]
+                .groupby("anonymized_card_code")
+                .agg({c: "last" for c in socio_cols})
+            )
+            features = features.join(socio, how="left")
+
+    num_cols = features.select_dtypes(include=[np.number]).columns
+    features[num_cols] = features[num_cols].fillna(0)
+
+    print(
+        f"  → Feature store corrigé : "
+        f"{features.shape[0]:,} clients × {features.shape[1]} features"
+    )
+    print(f"  ✓ Colonnes : {list(features.columns)}")
+    return features
+
+
+def save_corrected_features(
+    df_raw: pd.DataFrame,
+    seasonality_index: dict[int, float] | None = None,
+) -> dict[str, str]:
+    """
+    Génère et sauvegarde les features corrigées pour train (Jan–Jun) et test.
+
+    Fichiers produits :
+        data/customer_features_train_corrected.csv  (26 cols)
+        data/seasonality_index.csv                   (12 lignes)
+
+    Parameters
+    ----------
+    df_raw           : DataFrame brut (avant fix_data_quality).
+    seasonality_index: si None, calculé depuis l'ensemble du dataset brut.
+
+    Returns
+    -------
+    dict {label: chemin_absolu}
+    """
+    os.makedirs(DATA_PATH, exist_ok=True)
+    paths = {}
+
+    # Nettoyer une fois
+    df_clean_full = fix_data_quality(df_raw)
+
+    # Calculer SI sur l'ensemble (Jan–Sep) pour une référence complète
+    if seasonality_index is None:
+        print("[save_corrected_features] Calcul SI sur le dataset complet…")
+        seasonality_index = compute_seasonality_index(df_clean_full)
+
+    # Sauvegarder le SI pour traçabilité / audit jury
+    si_df = pd.DataFrame(
+        list(seasonality_index.items()),
+        columns=["month", "seasonality_index"]
+    ).sort_values("month")
+    si_path = os.path.join(DATA_PATH, "seasonality_index.csv")
+    si_df.to_csv(si_path, index=False)
+    paths["seasonality_index"] = si_path
+    print(f"  [save_corrected_features] → {si_path}")
+
+    # Features corrigées sur Jan–Jun uniquement (train)
+    df_train_clean = fix_data_quality(
+        df_raw[df_raw["transactionDate"] < SPLIT_DATE].copy()
+    )
+    feat_train_corr = build_corrected_feature_store(
+        df_train_clean, seasonality_index=seasonality_index
+    )
+    train_corr_path = os.path.join(DATA_PATH, "customer_features_train_corrected.csv")
+    feat_train_corr.to_csv(train_corr_path)
+    paths["train_corrected"] = train_corr_path
+    print(f"  [save_corrected_features] → {train_corr_path}")
+
+    # Validation croisée : nombre de migrations avant/après (approximation)
+    n_clients = len(feat_train_corr)
+    sw_mean   = feat_train_corr["seasonality_weight"].mean() if "seasonality_weight" in feat_train_corr.columns else 1.0
+    print(f"\n  Validation :")
+    print(f"    Clients dans le train corrigé : {n_clients:,}")
+    print(f"    Seasonality weight moyen      : {sw_mean:.3f}")
+    print("    ✓ Features corrigées prêtes pour re-entraînement MiniBatchKMeans")
+
+    return paths
+
+
 if __name__ == "__main__":
     df_raw   = load_raw_data()
     df_clean = fix_data_quality(df_raw)
@@ -427,4 +777,10 @@ if __name__ == "__main__":
     paths    = save_features(features, split=True, raw_df=df_raw)
     print("\nFichiers générés :")
     for k, v in paths.items():
+        print(f"  {k:30s} → {v}")
+
+    # Chantier 1 — features corrigées
+    print("\n── Génération features corrigées (saisonnalité) ──")
+    corr_paths = save_corrected_features(df_raw)
+    for k, v in corr_paths.items():
         print(f"  {k:30s} → {v}")

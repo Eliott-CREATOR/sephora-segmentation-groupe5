@@ -1,0 +1,263 @@
+[
+  {
+    "cluster_id": 0,
+    "name": "L'Acheteuse Occasionnelle",
+    "n_clients": 8619,
+    "pct_clients": 21.036317485111784,
+    "total_ca": 984811.32,
+    "kpis": {
+      "monetary_mean": 114.26,
+      "avg_basket": 100.96,
+      "frequency": 1.15,
+      "recency_days": 180.0,
+      "discount_ratio": 0.2496,
+      "pct_estore": 0.0014,
+      "icb_score": 4.3,
+      "clv_estimated": 1217.87
+    },
+    "deltas_vs_global": {
+      "monetary": "-47.4%",
+      "avg_basket": "+43.1%",
+      "frequency": "-62.4%",
+      "recency": "+19.2%",
+      "discount": "+0.1 pp"
+    },
+    "recommendations": [
+      "🏪  Animation en magasin : échantillons, beauty consultations exclusives",
+      "💰  Offres flash ciblées avec countdown — sensible aux promotions",
+      "⏰  Campagne réactivation : 'Vous nous manquez' + code promo à durée limitée"
+    ]
+  },
+  {
+    "cluster_id": 1,
+    "name": "L'Exploratrice Curieuse",
+    "n_clients": 6180,
+    "pct_clients": 15.083471639168211,
+    "total_ca": 725119.4,
+    "kpis": {
+      "monetary_mean": 117.33,
+      "avg_basket": 84.15,
+      "frequency": 1.6,
+      "recency_days": 179.2,
+      "discount_ratio": 0.0817,
+      "pct_estore": 0.0003,
+      "icb_score": 23.9,
+      "clv_estimated": 1415.55
+    },
+    "deltas_vs_global": {
+      "monetary": "-46.0%",
+      "avg_basket": "+19.3%",
+      "frequency": "-47.6%",
+      "recency": "+18.7%",
+      "discount": "-0.1 pp"
+    },
+    "recommendations": [
+      "🏪  Animation en magasin : échantillons, beauty consultations exclusives",
+      "👑  Programme Sephora Rouge VIP : accès early sale, lancements exclusifs",
+      "⏰  Campagne réactivation : 'Vous nous manquez' + code promo à durée limitée"
+    ]
+  },
+  {
+    "cluster_id": 2,
+    "name": "La Petite Acheteuse",
+    "n_clients": 6072,
+    "pct_clients": 14.81987698916333,
+    "total_ca": 162752.12,
+    "kpis": {
+      "monetary_mean": 26.8,
+      "avg_basket": 22.36,
+      "frequency": 1.21,
+      "recency_days": 182.9,
+      "discount_ratio": 0.0594,
+      "pct_estore": 0.0002,
+      "icb_score": 2.2,
+      "clv_estimated": 283.81
+    },
+    "deltas_vs_global": {
+      "monetary": "-87.7%",
+      "avg_basket": "-68.3%",
+      "frequency": "-60.4%",
+      "recency": "+21.1%",
+      "discount": "-0.1 pp"
+    },
+    "recommendations": [
+      "🏪  Animation en magasin : échantillons, beauty consultations exclusives",
+      "🎁  Programme de fidélité gamifié : double points sur marques exclusives",
+      "⏰  Campagne réactivation : 'Vous nous manquez' + code promo à durée limitée"
+    ]
+  },
+  {
+    "cluster_id": 3,
+    "name": "La VIP Beauty Addict",
+    "n_clients": 1183,
+    "pct_clients": 2.8873376940349504,
+    "total_ca": 1052477.77,
+    "kpis": {
+      "monetary_mean": 889.67,
+      "avg_basket": 138.46,
+      "frequency": 9.47,
+      "recency_days": 114.9,
+      "discount_ratio": 0.1892,
+      "pct_estore": 0.0017,
+      "icb_score": 53.1,
+      "clv_estimated": 3808.36
+    },
+    "deltas_vs_global": {
+      "monetary": "+309.5%",
+      "avg_basket": "+96.3%",
+      "frequency": "+210.0%",
+      "recency": "-23.9%",
+      "discount": "+0.1 pp"
+    },
+    "recommendations": [
+      "🏪  Animation en magasin : échantillons, beauty consultations exclusives",
+      "👑  Programme Sephora Rouge VIP : accès early sale, lancements exclusifs",
+      "⏰  Campagne réactivation : 'Vous nous manquez' + code promo à durée limitée"
+    ]
+  },
+  {
+    "cluster_id": 4,
+    "name": "Le Client Dormant",
+    "n_clients": 7369,
+    "pct_clients": 17.985453480425655,
+    "total_ca": 331199.05,
+    "kpis": {
+      "monetary_mean": 44.94,
+      "avg_basket": 40.21,
+      "frequency": 1.14,
+      "recency_days": 183.6,
+      "discount_ratio": 0.0408,
+      "pct_estore": 0.0023,
+      "icb_score": 3.3,
+      "clv_estimated": 482.85
+    },
+    "deltas_vs_global": {
+      "monetary": "-79.3%",
+      "avg_basket": "-43.0%",
+      "frequency": "-62.6%",
+      "recency": "+21.6%",
+      "discount": "-0.1 pp"
+    },
+    "recommendations": [
+      "🏪  Animation en magasin : échantillons, beauty consultations exclusives",
+      "👑  Programme Sephora Rouge VIP : accès early sale, lancements exclusifs",
+      "⏰  Campagne réactivation : 'Vous nous manquez' + code promo à durée limitée"
+    ]
+  },
+  {
+    "cluster_id": 5,
+    "name": "La Régulière Classique",
+    "n_clients": 3537,
+    "pct_clients": 8.632724787659866,
+    "total_ca": 505340.97000000003,
+    "kpis": {
+      "monetary_mean": 142.87,
+      "avg_basket": 52.55,
+      "frequency": 2.89,
+      "recency_days": 128.2,
+      "discount_ratio": 0.1275,
+      "pct_estore": 0.0,
+      "icb_score": 16.3,
+      "clv_estimated": 558.95
+    },
+    "deltas_vs_global": {
+      "monetary": "-34.2%",
+      "avg_basket": "-25.5%",
+      "frequency": "-5.5%",
+      "recency": "-15.1%",
+      "discount": "-0.0 pp"
+    },
+    "recommendations": [
+      "🏪  Animation en magasin : échantillons, beauty consultations exclusives",
+      "👑  Programme Sephora Rouge VIP : accès early sale, lancements exclusifs",
+      "⏰  Campagne réactivation : 'Vous nous manquez' + code promo à durée limitée"
+    ]
+  },
+  {
+    "cluster_id": 6,
+    "name": "La Passionnée Premium",
+    "n_clients": 4255,
+    "pct_clients": 10.385141071951578,
+    "total_ca": 1268847.96,
+    "kpis": {
+      "monetary_mean": 298.2,
+      "avg_basket": 79.27,
+      "frequency": 4.43,
+      "recency_days": 129.1,
+      "discount_ratio": 0.1398,
+      "pct_estore": 0.0,
+      "icb_score": 37.1,
+      "clv_estimated": 1285.72
+    },
+    "deltas_vs_global": {
+      "monetary": "+37.3%",
+      "avg_basket": "+12.4%",
+      "frequency": "+44.9%",
+      "recency": "-14.5%",
+      "discount": "+0.0 pp"
+    },
+    "recommendations": [
+      "🏪  Animation en magasin : échantillons, beauty consultations exclusives",
+      "👑  Programme Sephora Rouge VIP : accès early sale, lancements exclusifs",
+      "⏰  Campagne réactivation : 'Vous nous manquez' + code promo à durée limitée"
+    ]
+  },
+  {
+    "cluster_id": 7,
+    "name": "La Fidèle Discrète",
+    "n_clients": 1065,
+    "pct_clients": 2.5993361319925805,
+    "total_ca": 116706.53,
+    "kpis": {
+      "monetary_mean": 109.58,
+      "avg_basket": 54.42,
+      "frequency": 2.02,
+      "recency_days": 120.4,
+      "discount_ratio": 0.1254,
+      "pct_estore": 0.0,
+      "icb_score": 23.1,
+      "clv_estimated": 343.4
+    },
+    "deltas_vs_global": {
+      "monetary": "-49.6%",
+      "avg_basket": "-22.9%",
+      "frequency": "-33.9%",
+      "recency": "-20.2%",
+      "discount": "-0.0 pp"
+    },
+    "recommendations": [
+      "🏪  Animation en magasin : échantillons, beauty consultations exclusives",
+      "👑  Programme Sephora Rouge VIP : accès early sale, lancements exclusifs",
+      "⏰  Campagne réactivation : 'Vous nous manquez' + code promo à durée limitée"
+    ]
+  },
+  {
+    "cluster_id": 8,
+    "name": "La Régulière Engagée",
+    "n_clients": 2692,
+    "pct_clients": 6.570340720492044,
+    "total_ca": 569279.91,
+    "kpis": {
+      "monetary_mean": 211.47,
+      "avg_basket": 62.56,
+      "frequency": 3.59,
+      "recency_days": 140.8,
+      "discount_ratio": 0.1755,
+      "pct_estore": 0.0071,
+      "icb_score": 28.1,
+      "clv_estimated": 963.0
+    },
+    "deltas_vs_global": {
+      "monetary": "-2.7%",
+      "avg_basket": "-11.3%",
+      "frequency": "+17.4%",
+      "recency": "-6.8%",
+      "discount": "+0.0 pp"
+    },
+    "recommendations": [
+      "🏪  Animation en magasin : échantillons, beauty consultations exclusives",
+      "👑  Programme Sephora Rouge VIP : accès early sale, lancements exclusifs",
+      "⏰  Campagne réactivation : 'Vous nous manquez' + code promo à durée limitée"
+    ]
+  }
+]

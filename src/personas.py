@@ -36,14 +36,15 @@ RADAR_AXES = [
 
 # Noms des personas (calibrés sur les archétypes Sephora)
 PERSONA_NAMES = {
-    0: "La Beauty Addict Omnicanale",
-    1: "L'Exploratrice GenZ",
-    2: "La Loyaliste Parfum Premium",
-    3: "La Pragmatique Skincare",
-    4: "Le Client Dormant",
-    5: "L'Opportuniste Promo",
-    6: "Le Connaisseur Masculin",
-    7: "La VIP Exclusive",
+    0: "L'Acheteuse Occasionnelle",   # 21% — CA 114€, freq 1.1, one-shot store
+    1: "L'Exploratrice Curieuse",     # 15% — CA 117€, ICB 24, brand_entropy élevée
+    2: "La Petite Acheteuse",         # 15% — CA 27€ (-81%), petits paniers budget
+    3: "La VIP Beauty Addict",        # 3%  — CA 890€ (+538%), freq 9.5, ICB 53
+    4: "Le Client Dormant",           # 18% — CA 45€, recency 184j, inactive
+    5: "La Régulière Classique",      # 9%  — CA 143€ (≈moy), freq 2.9
+    6: "La Passionnée Premium",       # 10% — CA 298€ (+114%), freq 4.4, ICB 37
+    7: "La Fidèle Discrète",          # 3%  — CA 110€, recency 120j, tenure 123j
+    8: "La Régulière Engagée",        # 7%  — CA 212€ (+52%), freq 3.6, ICB 28
 }
 
 
