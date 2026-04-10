@@ -5,11 +5,11 @@ Sephora × Albert School — BDD #7 | Groupe 5 | Case 2
 Dashboard CRM analytique — focus argent & actionnabilité
 
 Pages :
-    1. 💰 Command Center   : KPIs financiers + alertes churn + vs RFM statique
-    2. 📡 Migrations Live  : slider temporel + action CRM par migration + savings
-    3. 📈 Valeur Business  : CLV, scatter ROI, top-10 opportunités
-    4. 🧩 Personas         : profils clusters + radar charts
-    5. 👤 Vue Client       : profil individuel + historique + recommandation
+    1. COMMAND CENTER   : KPIs financiers + alertes churn + vs RFM statique
+    2. MIGRATIONS LIVE  : slider temporel + action CRM par migration + savings
+    3. VALEUR BUSINESS  : CLV, scatter ROI, top-10 opportunités
+    4. PERSONAS         : profils clusters + radar charts
+    5. VUE CLIENT       : profil individuel + historique + recommandation
 
 Font : IBM Plex Mono / IBM Plex Sans
 Palette : #000000 noir | #C9A84C or | #E63946 rouge | #2DC653 vert
@@ -24,16 +24,40 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import os, sys, json
+import base64
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.dirname(__file__))
+
+from inject_css import get_css
+from components import (
+    kpi_card, section_header, persona_avatar_html,
+    product_image_card, versus_box, alert_banner, crm_action_card,
+    PERSONA_AVATARS, marketing_recommendation_card, MARKETING_PLAYBOOK,
+)
+from plot_theme import (
+    apply_dark_theme, plot_migration_timeline_dark,
+    plot_radar_dark, plot_clv_scatter_dark, plot_ca_barplot_dark,
+    CLUSTER_COLORS, SEPHORA_DARK,
+)
 
 # ── Config page ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Sephora CRM | Groupe 5",
-    page_icon="💄",
+    page_icon=":lips:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# ── Theme + Scope init ───────────────────────────────────────────────────────
+if "theme" not in st.session_state:
+    st.session_state["theme"] = "dark"
+if "scope" not in st.session_state:
+    st.session_state["scope"] = "JUL–SEP 2025"
+
+# ── Inject Sephora CSS ────────────────────────────────────────────────────────
+st.markdown(get_css(st.session_state["theme"]), unsafe_allow_html=True)
 
 # ── Palette ───────────────────────────────────────────────────────────────────
 GOLD   = "#C9A84C"
@@ -47,7 +71,7 @@ LGRAY  = "#2A2A2A"
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;700&family=IBM+Plex+Sans:wght@200;400;700;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400&family=DM+Mono:wght@300;400;500&display=swap');
 
   :root {{
     --gold:  {GOLD};
@@ -58,13 +82,13 @@ st.markdown(f"""
   }}
 
   html, body, [class*="css"] {{
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Jost', sans-serif;
     background: #0D0D0D;
-    color: #E8E8E8;
+    color: #F0EDE8;
   }}
 
   .page-header {{
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'DM Mono', monospace;
     font-size: 1.05rem;
     font-weight: 300;
     letter-spacing: 0.18em;
@@ -83,22 +107,22 @@ st.markdown(f"""
     text-align: center;
   }}
   .kpi-gold .kpi-label {{
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'DM Mono', monospace;
     font-size: 0.68rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--gold);
+    color: #D4B060;
     margin-bottom: 0.35rem;
   }}
   .kpi-gold .kpi-value {{
-    font-family: 'IBM Plex Sans', sans-serif;
+    font-family: 'Jost', sans-serif;
     font-size: 1.9rem;
     font-weight: 900;
     color: #FFFFFF;
     line-height: 1;
   }}
   .kpi-gold .kpi-delta {{
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'DM Mono', monospace;
     font-size: 0.72rem;
     margin-top: 0.3rem;
     color: #AAAAAA;
@@ -110,23 +134,23 @@ st.markdown(f"""
     border-radius: 4px;
     padding: 0.65rem 1rem;
     margin-bottom: 0.5rem;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'DM Mono', monospace;
     font-size: 0.78rem;
   }}
   .alert-red .alert-title {{ color: var(--red); font-weight: 700; }}
   .alert-red .alert-body  {{ color: #D0D0D0; margin-top: 0.2rem; }}
 
   .alert-green {{
-    background: linear-gradient(135deg, #001A06 0%, #002510 100%);
-    border-left: 3px solid var(--green);
+    background: linear-gradient(135deg, #0D1F0D 0%, #0A1A0F 100%);
+    border-left: 3px solid #2EC4B6;
     border-radius: 4px;
     padding: 0.65rem 1rem;
     margin-bottom: 0.5rem;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'DM Mono', monospace;
     font-size: 0.78rem;
   }}
-  .alert-green .alert-title {{ color: var(--green); font-weight: 700; }}
-  .alert-green .alert-body  {{ color: #D0D0D0; margin-top: 0.2rem; }}
+  .alert-green .alert-title {{ color: #2EC4B6; font-weight: 700; }}
+  .alert-green .alert-body  {{ color: #E0E0E0; margin-top: 0.2rem; }}
 
   .versus-box {{
     background: linear-gradient(180deg, #121212 0%, #0D0D0D 100%);
@@ -135,11 +159,11 @@ st.markdown(f"""
     padding: 1rem 1.2rem;
   }}
   .versus-box h5 {{
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'DM Mono', monospace;
     font-size: 0.7rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: #888;
+    color: #AAAAAA;
     margin-bottom: 0.6rem;
   }}
 
@@ -147,7 +171,7 @@ st.markdown(f"""
     display: inline-block;
     background: var(--gold);
     color: #000;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'DM Mono', monospace;
     font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -229,12 +253,7 @@ def load_migrations():
         path = os.path.join(OUTPUTS_PATH, "data", "migrations.csv")
         if os.path.exists(path):
             df = pd.read_csv(path, parse_dates=["date"])
-            assert df["date"].max() <= pd.Timestamp("2025-09-30"), \
-                f"Données hors période attendue : {df['date'].max()}"
             return df
-    except AssertionError as e:
-        st.error(f"⚠️ {e}")
-        return None
     except Exception:
         pass
     return None
@@ -282,15 +301,20 @@ def compute_business_kpis(feat_train, migrations=None, active_ids=None):
 
     # Migrations
     if migrations is not None and len(migrations) > 0:
-        kpis["n_migrations"]  = len(migrations)
+        mig_only = migrations[migrations["type"] != "new_client_assignment"] \
+            if "type" in migrations.columns else migrations
+        kpis["n_migrations"]  = len(mig_only)
         kpis["n_downgrades"]  = (migrations["direction"] == "downgrade").sum()
         kpis["n_upgrades"]    = (migrations["direction"] == "upgrade").sum()
         kpis["migration_rate"]= migrations["client_id"].nunique() / len(feat_train)
+        kpis["n_new_clients"] = int((migrations["type"] == "new_client_assignment").sum()) \
+            if "type" in migrations.columns else 0
     else:
         kpis["n_migrations"]  = 0
         kpis["n_downgrades"]  = 0
         kpis["n_upgrades"]    = 0
         kpis["migration_rate"]= 0.0
+        kpis["n_new_clients"] = 0
 
     return kpis
 
@@ -335,6 +359,29 @@ def fmt_eur(v):
         return f"{v/1_000:.1f}K €"
     return f"{v:.0f} €"
 
+def _inject_page_bg(filename: str):
+    """Injecte une image de fond avec overlay via multi-background CSS (fiable)."""
+    assets_dir = os.path.join(os.path.dirname(__file__), "assets")
+    path = os.path.join(assets_dir, filename)
+    if not os.path.exists(path):
+        return
+    with open(path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+    ext = filename.rsplit(".", 1)[-1].lower()
+    mime_map = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png",
+                "webp": "webp", "avif": "avif", "gif": "gif"}
+    mime = mime_map.get(ext, "jpeg")
+    theme = st.session_state.get("theme", "dark")
+    # Overlay via linear-gradient + image en multi-background : pas de conflit ::before
+    ov = "rgba(0,0,0,0.80)" if theme == "dark" else "rgba(245,240,235,0.88)"
+    st.markdown(f"""<style>
+    .stApp {{
+        background:
+            linear-gradient({ov}, {ov}),
+            url("data:image/{mime};base64,{b64}") center / cover fixed !important;
+    }}
+    </style>""", unsafe_allow_html=True)
+
 # ── Données ───────────────────────────────────────────────────────────────────
 from src.utils import DATA_PATH, OUTPUTS_PATH, MODELS_PATH
 
@@ -357,41 +404,88 @@ model, scaler = load_model_cached()
 persona_cards = load_personas()
 migrations    = load_migrations()
 active_ids    = load_active_client_ids() if data_loaded else set()
-kpis = compute_business_kpis(feat_train, migrations, active_ids) if data_loaded else {}
+
+# ── Filtre périmètre (scope) ──────────────────────────────────────────────────
+_scope = st.session_state.get("scope", "JUL–SEP 2025")
+if migrations is not None:
+    if _scope == "JUL–SEP 2025":
+        migrations_filtered = migrations[migrations["date"] <= pd.Timestamp("2025-09-30")].copy()
+    else:
+        migrations_filtered = migrations.copy()
+else:
+    migrations_filtered = None
+
+kpis = compute_business_kpis(feat_train, migrations_filtered, active_ids) if data_loaded else {}
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
-st.sidebar.markdown(f"""
-<div style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;
-     letter-spacing:0.14em;color:{GOLD};text-transform:uppercase;
-     border-bottom:1px solid #333;padding-bottom:0.5rem;margin-bottom:0.8rem;">
-  Sephora × Albert School<br/>Groupe 5 · BDD #7
-</div>
+st.sidebar.markdown("""
+<div style="
+    font-family:'Jost',sans-serif;
+    font-size:1.4rem; font-weight:300; font-style:italic;
+    color:#F5F0EB; letter-spacing:0.15em;
+    padding:1rem 0 0.5rem;
+    border-bottom:1px solid #1A1A1A;
+    margin-bottom:1rem; text-align:center;
+">S E P H O R A</div>
+<div style="
+    font-family:'DM Mono',monospace;
+    font-size:0.5rem; letter-spacing:0.2em;
+    color:#333; text-align:center;
+    text-transform:uppercase; margin-bottom:1.5rem;
+">Data Intelligence · 2026</div>
 """, unsafe_allow_html=True)
 
+# ── Theme toggle ─────────────────────────────────────────────────────────────
+_theme_label = "◐ MODE CLAIR" if st.session_state["theme"] == "dark" else "◑ MODE SOMBRE"
+if st.sidebar.button(_theme_label, use_container_width=True):
+    st.session_state["theme"] = "light" if st.session_state["theme"] == "dark" else "dark"
+    st.rerun()
+
+st.sidebar.markdown("<div style='margin-bottom:0.8rem'></div>", unsafe_allow_html=True)
+
+# ── Scope toggle ──────────────────────────────────────────────────────────────
+st.sidebar.markdown("""<div style="font-family:'DM Mono',monospace;font-size:0.58rem;
+    letter-spacing:0.18em;color:#666;text-transform:uppercase;margin-bottom:0.3rem;">
+    Périmètre d'analyse</div>""", unsafe_allow_html=True)
+
+scope = st.sidebar.radio(
+    "PÉRIMÈTRE D'ANALYSE",
+    ["JUL–SEP 2025", "JUL–DÉC 2025"],
+    key="scope",
+    label_visibility="collapsed",
+    index=0 if st.session_state.get("scope", "JUL–SEP 2025") == "JUL–SEP 2025" else 1,
+)
+
+if scope == "JUL–SEP 2025":
+    st.sidebar.markdown("""<div style="
+        background:#1A1500;border-left:3px solid #C9A84C;
+        padding:0.4rem 0.7rem;margin:0.3rem 0 0.8rem;
+        font-family:'DM Mono',monospace;font-size:0.62rem;
+        color:#C9A84C;letter-spacing:0.06em;line-height:1.5;">
+        Migrations comportementales pures</div>""", unsafe_allow_html=True)
+else:
+    st.sidebar.markdown("""<div style="
+        background:#001A18;border-left:3px solid #2EC4B6;
+        padding:0.4rem 0.7rem;margin:0.3rem 0 0.8rem;
+        font-family:'DM Mono',monospace;font-size:0.62rem;
+        color:#2EC4B6;letter-spacing:0.06em;line-height:1.5;">
+        Inclut pic fêtes + nouveaux clients</div>""", unsafe_allow_html=True)
+
 page = st.sidebar.radio(
-    "",
+    "Navigation",
+    label_visibility="collapsed",
     options=[
-        "💰 Command Center",
-        "📡 Migrations Live",
-        "📈 Valeur Business",
-        "🧩 Personas",
-        "👤 Vue Client",
+        "COMMAND CENTER",
+        "MIGRATIONS LIVE",
+        "VALEUR BUSINESS",
+        "PERSONAS",
+        "VUE CLIENT",
     ],
     index=0,
 )
 
 st.sidebar.divider()
-
-# Indicateur source features
-src_color = GREEN if "corrigées" in _feat_source else "#AAAAAA"
-st.sidebar.markdown(f"""
-<div style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:{src_color};">
-  ● Features : {_feat_source}
-</div>
-""", unsafe_allow_html=True)
-
-st.sidebar.divider()
-if st.sidebar.button("🔄 Rafraîchir", use_container_width=True):
+if st.sidebar.button("RAFRAICHIR", use_container_width=True):
     st.cache_data.clear()
     st.cache_resource.clear()
     st.rerun()
@@ -405,6 +499,15 @@ st.sidebar.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# ── Header global sticky ──────────────────────────────────────────────────────
+st.markdown("""
+<div class="sephora-sticky-logo">
+    <span class="logo-title">S E P H O R A</span>
+    <span class="logo-sub">Segmentation Dynamique &middot; BDD #7 &middot; Groupe 5</span>
+    <span class="logo-jury">Jury : Youri Zakhvatov &mdash; Dir. Data Analytics</span>
+</div>
+""", unsafe_allow_html=True)
+
 if not data_loaded:
     st.markdown('<div class="page-header">DONNÉES NON GÉNÉRÉES</div>', unsafe_allow_html=True)
     st.info("Exécuter les notebooks 0 → 4 pour produire les fichiers dans `data/` et `outputs/`.")
@@ -413,15 +516,10 @@ if not data_loaded:
 # ═════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — COMMAND CENTER
 # ═════════════════════════════════════════════════════════════════════════════
-if page == "💰 Command Center":
-    st.markdown('<div class="page-header">💰 Command Center — Vue Financière Globale</div>',
+if page == "COMMAND CENTER":
+    _inject_page_bg("sephora-box-kiss.jpg")
+    st.markdown('<div class="page-header">COMMAND CENTER — VUE FINANCIERE GLOBALE</div>',
                 unsafe_allow_html=True)
-
-    if migrations is not None and migrations["date"].max() > pd.Timestamp("2025-09-30"):
-        st.warning(
-            f"⚠️ Données disponibles jusqu'au {migrations['date'].max().strftime('%d/%m/%Y')} uniquement — "
-            "les périodes au-delà de septembre 2025 sont hors périmètre."
-        )
 
     # ── 4 KPI cards ──────────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
@@ -460,9 +558,9 @@ if page == "💰 Command Center":
     with left:
         st.markdown("#### Top Alertes Churn — Segments Prioritaires")
 
-        if migrations is not None and len(migrations) > 0 and "cluster" in feat_train.columns:
+        if migrations_filtered is not None and len(migrations_filtered) > 0 and "cluster" in feat_train.columns:
             cluster_ca = feat_train.groupby("cluster")["monetary"].mean()
-            mig_down   = migrations[migrations["direction"] == "downgrade"].copy()
+            mig_down   = migrations_filtered[migrations_filtered["direction"] == "downgrade"].copy()
             mig_down["ca_origine"] = mig_down["from_cluster"].map(cluster_ca).fillna(0)
             mig_down["saving"]     = mig_down["ca_origine"] * CRM_ACTIONS["downgrade"]["retention_30d"] * MARGIN
 
@@ -477,14 +575,14 @@ if page == "💰 Command Center":
             for cl_id, row in top_clusters.iterrows():
                 pname = PERSONA_NAMES.get(int(cl_id), f"Cluster {cl_id}")
                 st.markdown(alert_html(
-                    f"⚠ Cluster {cl_id} — {pname}",
+                    f"ALERTE — Cluster {cl_id} — {pname}",
                     f"{int(row['n_clients'])} clients en downgrade · "
                     f"CA récupérable : <strong>{fmt_eur(row['ca_sauve'])}</strong> / mois "
                     f"(rétention 30j @ {CRM_ACTIONS['downgrade']['retention_30d']*100:.0f}%)"
                 ), unsafe_allow_html=True)
         else:
             st.markdown(alert_html(
-                "⚠ Aucune donnée migration",
+                "ALERTE — Aucune donnée migration",
                 "Exécuter notebook 3 pour détecter les migrations et activer les alertes.",
                 "red"
             ), unsafe_allow_html=True)
@@ -493,8 +591,8 @@ if page == "💰 Command Center":
         if "cluster" in feat_train.columns and "monetary" in feat_train.columns:
             st.markdown("#### Répartition CA par Segment")
             ca_seg = feat_train.groupby("cluster")["monetary"].sum().sort_values(ascending=False)
-            fig, ax = plt.subplots(figsize=(8, 3.2), facecolor="#0D0D0D")
-            ax.set_facecolor("#0D0D0D")
+            fig, ax = plt.subplots(figsize=(8, 3.2))
+            apply_dark_theme(fig, ax)
             colors_bar = [GOLD if i == 0 else "#444" for i in range(len(ca_seg))]
             bars = ax.barh(range(len(ca_seg)), ca_seg.values / 1000,
                            color=colors_bar, edgecolor="none", height=0.6)
@@ -522,8 +620,8 @@ if page == "💰 Command Center":
 
         comp_data = {
             "Critère":            ["Méthode",         "Nb segments",   "Données",         "Mise à jour",    "Action CRM",    "Saisonnalité"],
-            "RFM Sephora":        ["Score statique",  "9 segments",    "3 vars",          "Mensuelle",      "Générique",     "❌ Ignorée"],
-            "Notre Système":      ["MiniBatch KMeans","5-8 personas",  "25 features",     "Temps réel",     "Personnalisée", "✅ Corrigée"],
+            "RFM Sephora":        ["Score statique",  "9 segments",    "3 vars",          "Mensuelle",      "Générique",     "Non"],
+            "Notre Système":      ["MiniBatch KMeans","5-8 personas",  "25 features",     "Temps réel",     "Personnalisée", "Oui"],
         }
         df_comp = pd.DataFrame(comp_data).set_index("Critère")
 
@@ -546,10 +644,11 @@ if page == "💰 Command Center":
         # Delta KPIs vs RFM
         st.markdown("<br/>", unsafe_allow_html=True)
         if kpis.get("n_migrations", 0) > 0:
+            _scope_label = "Jul–Sep" if st.session_state.get("scope") == "JUL–SEP 2025" else "Jul–Déc"
             st.markdown(alert_html(
-                "✅ Avantage détection précoce",
-                f"<strong>{kpis['n_downgrades']}</strong> churn détectés avant perte effective. "
-                f"RFM statique : 0 alertes en temps réel.",
+                "Avantage détection précoce",
+                f"<strong>{kpis['n_downgrades']}</strong> churn détectés avant perte effective "
+                f"({_scope_label}). RFM statique : 0 alertes en temps réel.",
                 "green"
             ), unsafe_allow_html=True)
 
@@ -559,8 +658,8 @@ if page == "💰 Command Center":
             st.markdown("#### Indice de Saisonnalité (Correction Q3)")
             si_df = pd.read_csv(si_path)
             if "month" in si_df.columns and "si" in si_df.columns:
-                fig_si, ax_si = plt.subplots(figsize=(5, 2.8), facecolor="#0D0D0D")
-                ax_si.set_facecolor("#0D0D0D")
+                fig_si, ax_si = plt.subplots(figsize=(5, 2.8))
+                apply_dark_theme(fig_si, ax_si)
                 month_labels = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"]
                 bar_colors = [RED if si_df.loc[i,"si"] > 1.15 else ("#555" if si_df.loc[i,"si"] < 0.9 else GOLD)
                               for i in range(len(si_df))]
@@ -581,17 +680,18 @@ if page == "💰 Command Center":
 # ═════════════════════════════════════════════════════════════════════════════
 # PAGE 2 — MIGRATIONS LIVE
 # ═════════════════════════════════════════════════════════════════════════════
-elif page == "📡 Migrations Live":
-    st.markdown('<div class="page-header">📡 Migrations Live — Détection & Actions CRM</div>',
+elif page == "MIGRATIONS LIVE":
+    _inject_page_bg("SEPHORA-11042023.jpg.webp")
+    st.markdown('<div class="page-header">MIGRATIONS LIVE — DETECTION & ACTIONS CRM</div>',
                 unsafe_allow_html=True)
 
-    if migrations is None or len(migrations) == 0:
+    if migrations_filtered is None or len(migrations_filtered) == 0:
         st.warning("Exécuter notebook 3 pour générer `outputs/data/migrations.csv`.")
         st.stop()
 
     # ── Slider temporel ───────────────────────────────────────────────────────
-    min_d = migrations["date"].min().date()
-    max_d = migrations["date"].max().date()
+    min_d = migrations_filtered["date"].min().date()
+    max_d = migrations_filtered["date"].max().date()
 
     selected_date = st.slider(
         "Avancer dans le temps",
@@ -599,18 +699,22 @@ elif page == "📡 Migrations Live":
         format="DD/MM/YYYY"
     )
 
-    mig_slice = migrations[migrations["date"].dt.date <= selected_date].copy()
+    mig_slice = migrations_filtered[migrations_filtered["date"].dt.date <= selected_date].copy()
 
     # ── KPIs slice ────────────────────────────────────────────────────────────
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     n_down_s = (mig_slice["direction"] == "downgrade").sum()
     n_up_s   = (mig_slice["direction"] == "upgrade").sum()
     n_lat_s  = (mig_slice["direction"] == "lateral").sum()
+    # Nouveaux clients : enregistrements type new_client_assignment
+    n_new_s  = 0
+    if "type" in mig_slice.columns:
+        n_new_s = (mig_slice["type"] == "new_client_assignment").sum()
 
     total_saving, mig_down_detail = compute_crm_saving(mig_slice, feat_train, "downgrade")
 
     with c1:
-        st.markdown(kpi_card_html("Migrations cumulées", f"{len(mig_slice):,}",
+        st.markdown(kpi_card_html("Migrations cumulées", f"{len(mig_slice) - n_new_s:,}",
                                    f"jusqu'au {selected_date}"), unsafe_allow_html=True)
     with c2:
         st.markdown(kpi_card_html("↓ Downgrades", f"{n_down_s:,}",
@@ -622,6 +726,9 @@ elif page == "📡 Migrations Live":
         roi_moy = mig_down_detail["roi"].mean() if len(mig_down_detail) > 0 else 0
         st.markdown(kpi_card_html("ROI CRM Moyen", f"{roi_moy:.0f}x",
                                    f"sur interventions downgrade"), unsafe_allow_html=True)
+    with c5:
+        st.markdown(kpi_card_html("Nouveaux clients", f"{n_new_s:,}",
+                                   "Assignation Oct–Déc 2025"), unsafe_allow_html=True)
 
     st.markdown("<br/>", unsafe_allow_html=True)
 
@@ -670,8 +777,8 @@ elif page == "📡 Migrations Live":
             st.markdown("<br/>", unsafe_allow_html=True)
             s48 = detail_s["saving_48h"].sum()
             s30 = detail_s["saving_30d"].sum()
-            fig_sv, ax_sv = plt.subplots(figsize=(4.5, 2.5), facecolor="#0D0D0D")
-            ax_sv.set_facecolor("#0D0D0D")
+            fig_sv, ax_sv = plt.subplots(figsize=(4.5, 2.5))
+            apply_dark_theme(fig_sv, ax_sv)
             bars_sv = ax_sv.bar(["48h", "30 jours"], [s48, s30],
                                  color=[GOLD + "99", GOLD], edgecolor="none", width=0.5)
             for bar, val in zip(bars_sv, [s48, s30]):
@@ -690,8 +797,8 @@ elif page == "📡 Migrations Live":
     # ── Droite : Timeline + distribution ─────────────────────────────────────
     with right:
         # Timeline cumulative par direction
-        fig_t, ax_t = plt.subplots(figsize=(8, 3.8), facecolor="#0D0D0D")
-        ax_t.set_facecolor("#0D0D0D")
+        fig_t, ax_t = plt.subplots(figsize=(8, 3.8))
+        apply_dark_theme(fig_t, ax_t)
         dir_colors = {"downgrade": RED, "upgrade": GREEN, "lateral": GOLD}
         for direction, color in dir_colors.items():
             sub = mig_slice[mig_slice["direction"] == direction]
@@ -729,8 +836,9 @@ elif page == "📡 Migrations Live":
 # ═════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — VALEUR BUSINESS
 # ═════════════════════════════════════════════════════════════════════════════
-elif page == "📈 Valeur Business":
-    st.markdown('<div class="page-header">📈 Valeur Business — CLV & Opportunités ROI</div>',
+elif page == "VALEUR BUSINESS":
+    _inject_page_bg("Sephora-.jpg.webp")
+    st.markdown('<div class="page-header">VALEUR BUSINESS — CLV & OPPORTUNITES ROI</div>',
                 unsafe_allow_html=True)
 
     if feat_train is None or "cluster" not in feat_train.columns:
@@ -795,13 +903,14 @@ elif page == "📈 Valeur Business":
                                    "potentiel valeur projetée"), unsafe_allow_html=True)
 
     st.markdown("<br/>", unsafe_allow_html=True)
+
     left, right = st.columns([3, 2])
 
     # ── Scatter : Revenue récupérable × CLV potentiel ─────────────────────────
     with left:
         st.markdown("#### Scatter — CLV Potentiel × CA Moyen par Segment")
-        fig_sc, ax_sc = plt.subplots(figsize=(8, 5), facecolor="#0D0D0D")
-        ax_sc.set_facecolor("#0D0D0D")
+        fig_sc, ax_sc = plt.subplots(figsize=(8, 5))
+        apply_dark_theme(fig_sc, ax_sc)
         sizes = (clv_df["n_clients"] / clv_df["n_clients"].max() * 1200).clip(80)
         scatter = ax_sc.scatter(
             clv_df["ca_mean"], clv_df["clv_mean"],
@@ -866,8 +975,9 @@ elif page == "📈 Valeur Business":
 # ═════════════════════════════════════════════════════════════════════════════
 # PAGE 4 — PERSONAS
 # ═════════════════════════════════════════════════════════════════════════════
-elif page == "🧩 Personas":
-    st.markdown('<div class="page-header">🧩 Personas — Profils des Clusters</div>',
+elif page == "PERSONAS":
+    _inject_page_bg("SEPHORA_COLLECTION_900_280_institutional_banner_05012026_EU.jpg.avif")
+    st.markdown('<div class="page-header">PERSONAS — PROFILS DES CLUSTERS</div>',
                 unsafe_allow_html=True)
 
     if feat_train is None or "cluster" not in feat_train.columns:
@@ -899,6 +1009,9 @@ elif page == "🧩 Personas":
 
     row  = profile.loc[selected_cl] if selected_cl in profile.index else None
     name = PERSONA_NAMES.get(int(selected_cl), f"Cluster {selected_cl}")
+
+    # Avatar SVG animé
+    st.markdown(persona_avatar_html(int(selected_cl), size=100), unsafe_allow_html=True)
 
     if row is not None:
         global_mean = profile.select_dtypes(include=[np.number]).mean()
@@ -935,7 +1048,11 @@ elif page == "🧩 Personas":
             st.image(radar_path, caption=f"Radar — {name}", use_container_width=True)
         with col_r2:
             st.subheader("Recommandations Marketing")
-            if persona_cards:
+            recos = MARKETING_PLAYBOOK.get(int(selected_cl), [])
+            if recos:
+                for reco in recos:
+                    st.markdown(marketing_recommendation_card(reco), unsafe_allow_html=True)
+            elif persona_cards:
                 card = next((c for c in persona_cards if c["cluster_id"] == int(selected_cl)), None)
                 if card:
                     for rec in card["recommendations"]:
@@ -953,8 +1070,9 @@ elif page == "🧩 Personas":
 # ═════════════════════════════════════════════════════════════════════════════
 # PAGE 5 — VUE CLIENT
 # ═════════════════════════════════════════════════════════════════════════════
-elif page == "👤 Vue Client":
-    st.markdown('<div class="page-header">👤 Vue Client Individuel</div>',
+elif page == "VUE CLIENT":
+    _inject_page_bg("logo-3-2.png.webp")
+    st.markdown('<div class="page-header">VUE CLIENT INDIVIDUEL</div>',
                 unsafe_allow_html=True)
 
     if feat_train is None:
@@ -975,7 +1093,7 @@ elif page == "👤 Vue Client":
         )
     with col_btn:
         st.markdown("<br/>", unsafe_allow_html=True)
-        if st.button("🎲 Aléatoire", use_container_width=True):
+        if st.button("ALEATOIRE", use_container_width=True):
             st.session_state["client_id"] = str(np.random.choice(feat_train.index))
             st.rerun()
 
@@ -1002,7 +1120,7 @@ elif page == "👤 Vue Client":
             <div style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;
                  color:{RED if churn_risk else GREEN};letter-spacing:0.12em;
                  margin-bottom:0.8rem;">
-              {'⚠ CHURN RISK DÉTECTÉ' if churn_risk else '✅ CLIENT ACTIF — PROFIL STABLE'}
+              {'CHURN RISK DETECTE' if churn_risk else 'CLIENT ACTIF — PROFIL STABLE'}
             </div>
             """, unsafe_allow_html=True)
 
@@ -1034,44 +1152,66 @@ elif page == "👤 Vue Client":
 
             # Historique migrations
             if migrations is not None and len(migrations) > 0:
-                client_mig = migrations[migrations["client_id"] == client_id]
+                # Normaliser les IDs dans migrations pour comparaison robuste
+                def _norm_mig_id(x):
+                    try:
+                        return str(int(float(str(x))))
+                    except Exception:
+                        return str(x).strip()
+
+                _mig_work = migrations.copy()
+                _mig_work["_id_norm"] = _mig_work["client_id"].apply(_norm_mig_id)
+                _client_id_norm = _norm_mig_id(client_id)
+
+                client_mig = _mig_work[_mig_work["_id_norm"] == _client_id_norm].copy()
+
+                # Appliquer le filtre scope
+                if st.session_state.get("scope") == "JUL–SEP 2025":
+                    client_mig = client_mig[client_mig["date"] <= pd.Timestamp("2025-09-30")]
+
+                # Exclure les new_client_assignment pour l'historique de migration
+                if "type" in client_mig.columns:
+                    client_mig = client_mig[client_mig["type"] == "migration"]
+
+                st.caption(
+                    f"ID recherché : {_client_id_norm} | "
+                    f"Migrations trouvées : {len(client_mig)} | "
+                    f"Sample IDs migrations : {_mig_work['_id_norm'].head(3).tolist()}"
+                )
+
                 if len(client_mig) > 0:
                     st.markdown(f"**Historique migrations — {len(client_mig)} événement(s)**")
-                    st.dataframe(
-                        client_mig[["date","from_cluster","to_cluster","direction"]],
-                        use_container_width=True, hide_index=True
-                    )
+                    _cols = [c for c in ["date","from_cluster","to_cluster","direction","phase"]
+                             if c in client_mig.columns]
+                    st.dataframe(client_mig[_cols], use_container_width=True, hide_index=True)
                     # Alerte si dernier mouvement est downgrade
                     last_dir = client_mig.sort_values("date").iloc[-1]["direction"]
                     if last_dir == "downgrade":
                         st.markdown(alert_html(
-                            "⚠ Dernier mouvement : Downgrade",
+                            "ALERTE — Dernier mouvement : Downgrade",
                             f"Action recommandée : {CRM_ACTIONS['downgrade']['action']}"
                         ), unsafe_allow_html=True)
                     elif last_dir == "upgrade":
                         st.markdown(alert_html(
-                            "✅ Dernier mouvement : Upgrade",
+                            "Dernier mouvement : Upgrade",
                             f"Action recommandée : {CRM_ACTIONS['upgrade']['action']}",
                             "green"
                         ), unsafe_allow_html=True)
                 else:
-                    st.info("Ce client n'a pas migré de segment pendant la période Juil–Sep.")
+                    scope_label = st.session_state.get("scope", "JUL–SEP 2025")
+                    st.info(f"Ce client n'a pas migré de segment ({scope_label}).")
 
             # Recommandation marketing
-            st.markdown("**Action Marketing Recommandée**")
+            st.markdown("**Playbook Marketing — Cluster {}**".format(cluster_id))
             if churn_risk:
                 st.markdown(alert_html(
-                    f"⚠ Intervention CRM — {CRM_ACTIONS['downgrade']['label']}",
+                    f"INTERVENTION CRM — {CRM_ACTIONS['downgrade']['label']}",
                     f"{CRM_ACTIONS['downgrade']['action']}<br/>"
                     f"Canal : {CRM_ACTIONS['downgrade']['canal']} · "
                     f"Rétention 30j : {CRM_ACTIONS['downgrade']['retention_30d']*100:.0f}%"
                 ), unsafe_allow_html=True)
-            elif persona_cards:
-                card = next((c for c in persona_cards if c["cluster_id"] == cluster_id), None)
-                if card:
-                    for rec in card["recommendations"]:
-                        st.markdown(f"→ {rec}")
-                else:
-                    st.markdown(f"→ Activer le segment {cluster_id} selon les recommandations cluster.")
-            else:
+            recos = MARKETING_PLAYBOOK.get(cluster_id, [])
+            for reco in recos:
+                st.markdown(marketing_recommendation_card(reco), unsafe_allow_html=True)
+            if not recos:
                 st.markdown(f"→ Segment {cluster_id} — {persona_name} : appliquer la stratégie CRM du cluster.")
